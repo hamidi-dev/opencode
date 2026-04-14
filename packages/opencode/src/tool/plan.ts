@@ -10,6 +10,14 @@ import { Instance } from "../project/instance"
 import { type SessionID, MessageID, PartID } from "../session/schema"
 import EXIT_DESCRIPTION from "./plan-exit.txt"
 
+type Meta = {
+  switch: boolean
+  decision: "build" | "continue"
+  answers?: Question.Answer[]
+}
+
+const parameters = z.object({})
+
 function getLastModel(sessionID: SessionID) {
   for (const item of MessageV2.stream(sessionID)) {
     if (item.info.role === "user" && item.info.model) return item.info.model
@@ -17,7 +25,7 @@ function getLastModel(sessionID: SessionID) {
   return undefined
 }
 
-export const PlanExitTool = Tool.define(
+export const PlanExitTool = Tool.define<typeof parameters, Meta>(
   "plan_exit",
   Effect.gen(function* () {
     const session = yield* Session.Service
@@ -26,12 +34,12 @@ export const PlanExitTool = Tool.define(
 
     return {
       description: EXIT_DESCRIPTION,
-      parameters: z.object({}),
+      parameters,
       execute: (_params: {}, ctx: Tool.Context) =>
         Effect.gen(function* () {
           const info = yield* session.get(ctx.sessionID)
           const plan = path.relative(Instance.worktree, Session.plan(info))
-          const answers = yield* question.ask({
+          const pick = yield* question.ask({
             sessionID: ctx.sessionID,
             questions: [
               {
@@ -47,7 +55,31 @@ export const PlanExitTool = Tool.define(
             tool: ctx.callID ? { messageID: ctx.messageID, callID: ctx.callID } : undefined,
           })
 
-          if (answers[0]?.[0] === "No") yield* new Question.RejectedError()
+          if (pick[0]?.[0] === "No") {
+            const next = yield* question
+              .ask({
+                sessionID: ctx.sessionID,
+                questions: [
+                  {
+                    question: "What should we refine next in the plan?",
+                    header: "Continue Plan",
+                    options: [],
+                  },
+                ],
+                tool: ctx.callID ? { messageID: ctx.messageID, callID: ctx.callID } : undefined,
+              })
+              .pipe(Effect.catchTag("QuestionRejectedError", () => Effect.succeed([[]])))
+
+            return {
+              title: "Continuing in plan agent",
+              output: `User chose to keep planning. Follow-up input: ${next[0]?.join(", ") || "Unanswered"}. Use this feedback to refine the plan. If the plan is complete again later in this same turn, call plan_exit before ending the turn; otherwise continue planning or ask another clarifying question if needed.`,
+              metadata: {
+                switch: false,
+                decision: "continue",
+                answers: next,
+              },
+            }
+          }
 
           const model = getLastModel(ctx.sessionID) ?? (yield* provider.defaultModel())
 
@@ -72,7 +104,7 @@ export const PlanExitTool = Tool.define(
           return {
             title: "Switching to build agent",
             output: "User approved switching to build agent. Wait for further instructions.",
-            metadata: {},
+            metadata: { switch: true, decision: "build" },
           }
         }).pipe(Effect.orDie),
     }

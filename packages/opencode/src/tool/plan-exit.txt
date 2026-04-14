@@ -1,6 +1,8 @@
 Use this tool when you have completed the planning phase and are ready to exit plan agent.
 
 This tool will ask the user if they want to switch to build agent to start implementing the plan.
+If the user chooses not to switch, this tool will keep the session in plan mode and immediately ask what should be refined next.
+After a declined switch, continue planning from that feedback. If the plan becomes complete again in the same turn, call this tool again before ending the turn.
 
 Call this tool:
 - After you have written a complete plan to the plan file

@@ -338,9 +338,10 @@ Goal: Write your final plan to the plan file (the only file you can edit).
 
 ### Phase 5: Call plan_exit tool
 At the very end of your turn, once you have asked the user questions and are happy with your final plan file - you should always call plan_exit to indicate to the user that you are done planning.
-This is critical - your turn should only end with either asking the user a question or calling plan_exit. Do not stop unless it's for these 2 reasons.
+If the user declines switching to build mode, continue planning in the same session and use the returned feedback to refine the plan. If the plan becomes complete again in the same turn, call plan_exit again before ending the turn.
+This is critical - before the first approval attempt, your turn should only end with either asking the user a question or calling plan_exit. After a declined switch, you may continue planning normally, ask another question, or end the turn with plan_exit again once the plan is ready.
 
-**Important:** Use question tool to clarify requirements/approach, use plan_exit to request plan approval. Do NOT use question tool to ask "Is this plan okay?" - that's what plan_exit does.
+**Important:** Use question tool to clarify requirements/approach, use plan_exit to request plan approval. Do NOT use question tool to ask "Is this plan okay?" - that's what plan_exit does. If the user declines the switch, continue planning and use question for any further clarification.
 
 NOTE: At any point in time through this workflow you should feel free to ask the user questions or clarifications. Don't make large assumptions about user intent. The goal is to present a well researched plan to the user, and tie any loose ends before implementation begins.
 </system-reminder>`,
